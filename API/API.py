@@ -1,16 +1,29 @@
 #!/usr/bin/env python
 # encoding: utf-8
 import json
-from flask import Flask
+from flask import Flask, request, abort
 from flask_restful import Api, Resource, reqparse
+from functools import wraps
 
 app = Flask(__name__)
 api = Api(app)
-
 parser = reqparse.RequestParser()
 
-NAScount = 4
+# The actual decorator function
+def require_appkey(view_function):
+    @wraps(view_function)
+    # the new, post-decoration function. Note *args and **kwargs here.
+    def decorated_function(*args, **kwargs):
+        #with open('api.key', 'r') as apikey:
+        #    key=apikey.read().replace('\n', '')
+        if request.headers.get('key') and request.headers.get('key') == "key":
+        #if request.headers.get('x-api-key') and request.headers.get('x-api-key') == key:
+            return view_function(*args, **kwargs)
+        else:
+            abort(401)
+    return decorated_function
 
+NAScount = 4
 #load from database
 NASList = {
   '1' : {'name': '1U','type' : 'RS819' , 'addr': 1, 'state': 'on'},
@@ -21,6 +34,7 @@ NASList = {
 
 
 class state(Resource):
+    @require_appkey
     def get(self):
         return ({'rack' : 'c5', 'state' : 'online'}), 200
 
@@ -91,4 +105,9 @@ api.add_resource(NASs,'/NASs', '/NASs/')
 api.add_resource(NAS, '/NASs/<NAS_id>', '/NASs/<NAS_id>/')
 
 if __name__ == '__main__':
-  app.run(debug=True)
+  app.run(host='127.0.0.1',debug=True, ssl_context='adhoc')
+
+#import ssl
+#context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+#context.load_cert_chain("server.crt", "server.key")
+#sl_context=context

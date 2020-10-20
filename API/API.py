@@ -114,7 +114,7 @@ class softreset(Resource):
         if NAS_id not in NASList:
             return 'NOT found', 404
         else:
-            if NASList[NAS_id]['state'] is not 'on':
+            if NASList[NAS_id]['state'] != 'on':
                 return 'CONFLICT',409
             NASList[NAS_id]['state'] = "softreseting"
             #todo : envoie ordre
@@ -126,7 +126,7 @@ class hardreset(Resource):
         if NAS_id not in NASList:
             return 'NOT found', 404
         else:
-            if NASList[NAS_id]['state'] is not 'on':
+            if NASList[NAS_id]['state'] != 'on':
                 return 'CONFLICT',409
             NASList[NAS_id]['state'] = "hardreseting"
             #todo : envoie ordre
@@ -138,7 +138,7 @@ class reboot(Resource):
         if NAS_id not in NASList:
             return 'NOT found', 404
         else:
-            if NASList[NAS_id]['state'] is not 'on':
+            if NASList[NAS_id]['state'] != 'on':
                 return 'CONFLICT',409
             NASList[NAS_id]['state'] = "rebooting"
             #todo : envoie ordre

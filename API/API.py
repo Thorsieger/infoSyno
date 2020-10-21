@@ -4,10 +4,19 @@ import json
 from flask import Flask, request, abort
 from flask_restful import Api, Resource, reqparse
 from functools import wraps
+from pymongo import MongoClient
+
+rackName = 'c5'
 
 app = Flask(__name__)
 api = Api(app)
 parser = reqparse.RequestParser()
+
+# Database connexion
+client = MongoClient("mongodb://127.0.0.1:27017")
+db = client.mymongodb
+logs = db.logs
+rack = db.rack
 
 #Sécurisation par token
 def require_appkey(view_function):
@@ -22,38 +31,30 @@ def require_appkey(view_function):
             abort(401)
     return decorated_function
 
-#load from database
-NASList = {
-  '1' : {'name': '1U','type' : 'RS819' , 'addr': 1, 'state': 'on'},
-  '2' : {'name': '2U','type' : 'RS217', 'addr': 2, 'state': 'on'},
-  '3' : {'name': '3U','type' : 'RS820+', 'addr': 3, 'state': 'on'},
-  '4' : {'name': '4U','type' : 'RS820RP+', 'addr': 4, 'state': 'on'},
-}
-NAScount = 4
-
 #definition des endpoints
 class state(Resource):
     @require_appkey
     def get(self):
-        return ({'rack' : 'c5', 'state' : 'online'}), 200
+        return ({'rack' : rackName, 'state' : 'online'}), 200
 
 class NASs(Resource):
     @require_appkey
     def get(self):
         naslist = []
-        for x in NASList:
-            print(x)
+        for x in rack.distinct('_id'):
             naslist.append(NAS.get(self,x))
-        return {'rack' : 'c5','NAScount' : NAScount, 'NAS' : naslist}
+        return {'rack' : rackName,'NAScount' : rack.count_documents({}), 'NAS' : naslist}
 
 class NAS(Resource):
     @require_appkey
     def get(self,NAS_id):
-        if NAS_id not in NASList:
+        nas_data = rack.find_one({"_id":NAS_id})
+        if nas_data is None:
             return 'NOT found', 404
         else:
             #appel I2C pour obtenir l'état : NASList[NAS_id].addr + ajout static data (I2C addr)
-            return NASList[NAS_id]
+            nas_data['state'] = 'on' #en fait non il faut get l'etat
+            return nas_data
 
     @require_appkey
     def post(self,NAS_id):
@@ -61,21 +62,16 @@ class NAS(Resource):
         parser.add_argument('addr')
         parser.add_argument('type')
         args = parser.parse_args()
-        if NAS_id in NASList :
+
+        if rack.find_one({"_id":NAS_id}) is not None:
             return 'FORBIDDEN - ID EXIST', 403
-        for nas in NASList :
-            if NASList[nas]['addr'] == int(args['addr']):
+        if rack.find_one({"addr":int(args['addr'])}) is not None:
                 return 'FORBIDDEN - I2C ALREADY USE', 403
-        NASList[NAS_id] = {
-            'name': args['name'],
-            'type': args['type'],
-            'addr': int(args['addr']),
-            'state': 'on',
-        }
-        global NAScount
-        NAScount+=1
+        newNAS = {'_id':NAS_id, 'name': args['name'],'type': args['type'],'addr': int(args['addr'])}
         #sauvegarde en database
-        return NASList[NAS_id], 201
+        rack.insert_one(newNAS)
+        newNAS['state'] = 'undefined'
+        return newNAS, 201
 
     @require_appkey
     def patch(self, NAS_id):
@@ -83,66 +79,69 @@ class NAS(Resource):
         parser.add_argument('addr')
         parser.add_argument('type')
         args = parser.parse_args()
-        if NAS_id not in NASList:
+
+        nas_data = rack.find_one({"_id":NAS_id})
+        if nas_data is None:
             return 'NAS not found', 404
         else:
             if args['addr'] is not None :
-                for nas in NASList :
-                    if NASList[nas]['addr'] == int(args['addr']):
-                        return 'FORBIDDEN - I2C ALREADY USE', 403
-            nas = NASList[NAS_id]
-            nas['name'] = args['name'] if args['name'] is not None else nas['name']
-            nas['addr'] = args['addr'] if args['addr'] is not None else nas['addr']
-            nas['type'] = args['type'] if args['type'] is not None else nas['type']
+                if rack.find_one({"addr":int(args['addr'])}) == int(args['addr']):
+                    return 'FORBIDDEN - I2C ALREADY USE', 403
+            nas_data['name'] = args['name'] if args['name'] is not None else nas_data['name']
+            nas_data['addr'] = args['addr'] if args['addr'] is not None else nas_data['addr']
+            nas_data['type'] = args['type'] if args['type'] is not None else nas_data['type']
             #update database
-            return nas, 200
+            rack.update({'_id':NAS_id}, {'name': nas_data['name'],'type': nas_data['type'],'addr': int(nas_data['addr'])})
+            nas_data['state'] = 'undefined'
+            return nas_data, 200
 
     @require_appkey
     def delete(self, NAS_id):
-        if NAS_id not in NASList:
+        if rack.find_one({"_id":NAS_id}) is None:
             return 'NOT found', 404
         else:
-            del NASList[NAS_id]
-            global NAScount
-            NAScount-=1
             #update database
+            rack.delete_one({'_id':NAS_id})
             return '', 204
 
 class softreset(Resource):
     @require_appkey
     def post(self,NAS_id):
-        if NAS_id not in NASList:
-            return 'NOT found', 404
+        nas_data = rack.find_one({"_id":NAS_id})
+        if nas_data is None:
+            return 'NAS not found', 404
         else:
-            if NASList[NAS_id]['state'] != 'on':
-                return 'CONFLICT',409
-            NASList[NAS_id]['state'] = "softreseting"
+            #if ['state'] != 'on':
+            #    return 'CONFLICT',409
+            nas_data['state'] = "softreseting"
             #todo : envoie ordre
-            return NASList[NAS_id],202
+            return nas_data,202
 
 class hardreset(Resource):
     @require_appkey
     def post(self,NAS_id):
-        if NAS_id not in NASList:
-            return 'NOT found', 404
+        nas_data = rack.find_one({"_id":NAS_id})
+        if nas_data is None:
+            return 'NAS not found', 404
         else:
-            if NASList[NAS_id]['state'] != 'on':
-                return 'CONFLICT',409
-            NASList[NAS_id]['state'] = "hardreseting"
+            #if ['state'] != 'on':
+            #    return 'CONFLICT',409
+            nas_data['state'] = "hardreseting"
             #todo : envoie ordre
-            return NASList[NAS_id],202
+            return nas_data,202
 
 class reboot(Resource):
     @require_appkey
     def post(self,NAS_id):
-        if NAS_id not in NASList:
-            return 'NOT found', 404
+        nas_data = rack.find_one({"_id":NAS_id})
+        if nas_data is None:
+            return 'NAS not found', 404
         else:
-            if NASList[NAS_id]['state'] != 'on':
-                return 'CONFLICT',409
-            NASList[NAS_id]['state'] = "rebooting"
+            #if ['state'] != 'on':
+            #    return 'CONFLICT',409
+            nas_data['state'] = "rebooting"
             #todo : envoie ordre
-            return NASList[NAS_id],202
+            return nas_data,202
 
 #Ajout des endpoints à l'API
 api.add_resource(state,'/')
@@ -153,7 +152,7 @@ api.add_resource(hardreset, '/NASs/<NAS_id>/hardreset','/NASs/<NAS_id>/hardreset
 api.add_resource(reboot, '/NASs/<NAS_id>/reboot','/NASs/<NAS_id>/reboot/')
 
 if __name__ == '__main__':
-  app.run(host='127.0.0.1',debug=True, ssl_context='adhoc')
+    app.run(host='127.0.0.1',debug=True, ssl_context='adhoc')
 
 #import ssl
 #context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)

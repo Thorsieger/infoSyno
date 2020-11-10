@@ -166,21 +166,38 @@ class reboot(Resource):
 class log(Resource):
     @require_appkey
     def get(self,NAS_id):
-        nas_logs = logs.find({"NAS":NAS_id})
-        alllog =[]
+        nas_logs = logs.find({"NAS":NAS_id}).sort('date',-1)
+        logNAS =[]
         for x in nas_logs:
             x.pop('_id')
-            alllog.append(x)
-        if not alllog:
+            logNAS.append(x)
+        if not logNAS:
             #logs.insert_one({'date': str(datetime.now()),'command': 'log' ,'NAS': NAS_id, 'result': 'notfound'})
             return 'no data', 204
-        return alllog, 200
+        return logNAS, 200
 
     @require_appkey
     def delete(self,NAS_id):
         if logs.delete_many({"NAS":NAS_id}).deleted_count == 0:
             return 'no data', 204
-        return 'test', 204
+        return '', 204
+
+class alllogs(Resource):
+    @require_appkey
+    def get(self):
+        nas_logs = logs.find().sort([('NAS',1),('date',-1)])
+        logNAS =[]
+        for x in nas_logs:
+            x.pop('_id')
+            logNAS.append(x)
+        if not logNAS:
+            #logs.insert_one({'date': str(datetime.now()),'command': 'log' ,'NAS': NAS_id, 'result': 'notfound'})
+            return 'no data', 204
+        return logNAS, 200
+    def delete(self):
+        if logs.delete_many({}).deleted_count == 0:
+            return 'no data', 204
+        return '', 204
 
 #Ajout des endpoints à l'API
 api.add_resource(state,'/')
@@ -190,6 +207,7 @@ api.add_resource(softreset, '/NASs/<NAS_id>/softreset','/NASs/<NAS_id>/softreset
 api.add_resource(hardreset, '/NASs/<NAS_id>/hardreset','/NASs/<NAS_id>/hardreset/')
 api.add_resource(reboot, '/NASs/<NAS_id>/reboot','/NASs/<NAS_id>/reboot/')
 api.add_resource(log,'/NASs/<NAS_id>/logs','/NASs/<NAS_id>/logs/')
+api.add_resource(alllogs,'/NASs/logs','/NASs/logs/')
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1',debug=True, ssl_context='adhoc')

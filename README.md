@@ -8,7 +8,7 @@ A terme, sur ce repo, vous pourrez trouver le code de contrôle de l'API ainsi q
 
 ### Pour faire fonctionne le code 
 
-Python 3 + les bibliothèques python : flask, flask_restful, functools et pymongo
+Python 3 + les bibliothèques python : flask, flask_restful, functools, gevent et pymongo
 Il faut également lancer mongodb en local : mongod --dbpath ./Documents/.../data/ --port 27018
 
 Il est possible de tester les endpoints grâce à postman (en installant postman agent)

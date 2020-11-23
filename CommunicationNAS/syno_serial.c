@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include<stdlib.h>
 #include <string.h>
 
 #define RESPONSE_LENGTH 500
@@ -51,13 +52,63 @@ void sendSerialCommand(int fd, char* command, int commandlength, char buffer[RES
     printf("\n");
 }*/
 
+void getDate(int fd, char* date){
+    for (int i = 0; i < 3; i++)//la troisière erreur permet d'avoir la date
+    {
+        char response1[RESPONSE_LENGTH] = {0};
+        char response2[RESPONSE_LENGTH] = {0};
+
+        char* command = "root\n";
+        char* command2 = "\n";
+
+        sendSerialCommand(fd,command,strlen(command),response1);
+        write(fd,command2,strlen(command2));
+        sleep(5);
+        read(fd,response2,RESPONSE_LENGTH);
+
+        char* buf = strtok(response2,"\n");
+        strcpy(date,strtok(NULL,"\n"));
+        strcpy(date,strtok(NULL,"\n"));
+    }
+}
+
+int gcd(int a, int b){return (b?gcd(b,a%b):a);}
+
+void dateToPwd(char date[30], char pwd[9]){
+    char month[4],day[3];
+    int m;
+
+    char* buf = strtok(date," ");
+    strcpy(month,strtok(NULL," "));
+    strcpy(day,strtok(NULL," "));
+
+    if(strcmp(month,"Jan")==0)m=1;
+    else if(strcmp(month,"Feb")==0)m=2;
+    else if(strcmp(month,"Mar")==0)m=3;
+    else if(strcmp(month,"Apr")==0)m=4;
+    else if(strcmp(month,"May")==0)m=5;
+    else if(strcmp(month,"Jun")==0)m=6;
+    else if(strcmp(month,"Jul")==0)m=7;
+    else if(strcmp(month,"Aug")==0)m=8;
+    else if(strcmp(month,"Sep")==0)m=9;
+    else if(strcmp(month,"Oct")==0)m=10;
+    else if(strcmp(month,"Nov")==0)m=11;
+    else if(strcmp(month,"Dec")==0)m=12;
+
+    sprintf(pwd,"%x%02d-%02x%02d\n",m,m,atoi(day),gcd(m,atoi(day)));
+}
+
 int connexion(int fd){
+    char date[30] = {0};
+    char pwd[9] = {0};
+
+    getDate(fd,date);
+    dateToPwd(date,pwd);
+
     char response[RESPONSE_LENGTH] = {0};
     char* command = "root\n";
     sendSerialCommand(fd,command, strlen(command), response);
     if(strncmp(response+strlen(command),"\nPassword: ",11)!=0) return 0;
-    
-    char* pwd = "303-1701\n";
     sendSerialCommand(fd,pwd, strlen(pwd), response);
     return 1;
 }
@@ -90,7 +141,7 @@ int reboot(int fd){
     char* command = "reboot\n";
     sendSerialCommand(fd,command, strlen(command), response);
     printf("%s",response);
-    if(strncmp(response+strlen(command),"\r\nThe system is going down NOW!",32)==0) return 1;
+    if(strncmp(response+strlen(command),"\r\nThe system is going down NOW!",31)==0) return 1;
     else return 0;
     
 }
@@ -114,11 +165,11 @@ int main(void){
     if(available){
         getNasId(fd,macAddr);
         getNasType(fd,nasType);
-        isrebooting = reboot(fd);
+        //isrebooting = reboot(fd);
     }
 
 
-    printf("\n\nAffichage des résultats :\n");
+    printf("Affichage des résultats :\n");
     printf("Type de NAS : %s\n",nasType);
     printf("Addresse mac/identifiant unique : %s\n",macAddr);
     printf("reboot ? %d\n",isrebooting);

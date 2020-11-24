@@ -10,6 +10,7 @@ from flask_restful import Api, Resource, reqparse
 from functools import wraps
 from pymongo import MongoClient
 from gevent import pywsgi
+from gevent import monkey; monkey.patch_all()
 import time
 
 rackName = 'c5'

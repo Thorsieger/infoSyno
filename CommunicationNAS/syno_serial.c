@@ -44,14 +44,6 @@ void sendSerialCommand(int fd, char* command, int commandlength, char buffer[RES
     read(fd,buffer,RESPONSE_LENGTH);
 }
 
-/*void printSerialResponse(char* response){
-    for (int i = 0; i < RESPONSE_LENGTH; i++)
-    {
-        printf("%c",response[i]);
-    }
-    printf("\n");
-}*/
-
 void getDate(int fd, char* date){
     for (int i = 0; i < 3; i++)//la troisière erreur permet d'avoir la date
     {
@@ -74,10 +66,13 @@ void getDate(int fd, char* date){
 
 int gcd(int a, int b){return (b?gcd(b,a%b):a);}
 
-void dateToPwd(char date[30], char pwd[9]){
+void getPwd(int fd, char pwd[10]){
+
+    char date[30] = {0};
+    getDate(fd,date);
+
     char month[4],day[3];
     int m;
-
     char* buf = strtok(date," ");
     strcpy(month,strtok(NULL," "));
     strcpy(day,strtok(NULL," "));
@@ -98,12 +93,9 @@ void dateToPwd(char date[30], char pwd[9]){
     sprintf(pwd,"%x%02d-%02x%02d\n",m,m,atoi(day),gcd(m,atoi(day)));
 }
 
-int connexion(int fd){
-    char date[30] = {0};
-    char pwd[9] = {0};
-
-    getDate(fd,date);
-    dateToPwd(date,pwd);
+int connexionNAS(int fd){
+    char pwd[10] = {0};
+    getPwd(fd,pwd);
 
     char response[RESPONSE_LENGTH] = {0};
     char* command = "root\n";
@@ -128,7 +120,7 @@ void getNasType(int fd,char nasType[50]){
     strcpy(nasType,strtok(NULL,"\""));
 }
 
-int nasAvailable(int fd){
+int isNasAvailable(int fd){
     char response[RESPONSE_LENGTH] = {0};
     char* command = "\n";
     sendSerialCommand(fd,command, strlen(command), response);
@@ -136,36 +128,90 @@ int nasAvailable(int fd){
     else return 0;
 }
 
-int reboot(int fd){
+int sendReboot(int fd){
     char response[RESPONSE_LENGTH] = {0};
     char* command = "reboot\n";
     sendSerialCommand(fd,command, strlen(command), response);
-    printf("%s",response);
-    if(strncmp(response+strlen(command),"\r\nThe system is going down NOW!",31)==0) return 1;
+    if(strncmp(response + strlen(command),"\n\rThe system is going down NOW!",31)==0) return 1;
     else return 0;
     
 }
 
-int main(void){
-    char response[RESPONSE_LENGTH] = {0};
+int available(char* tty){
+    int fd = initSerialConnexion(tty);
+    if(fd<0)return 0;
+    
+    int status = isNasAvailable(fd);
 
+    stopSerialConnexion(fd);
+    return status;
+}
+
+int connexion(char* tty){
+    int fd = initSerialConnexion(tty);
+    if(fd<0)return 0;
+    if(available(tty))return 1;
+
+    if(!connexionNAS(fd))return 0;
+
+    int isAvailable = isNasAvailable(fd);
+
+    stopSerialConnexion(fd);
+    return isAvailable;
+}
+
+int reboot(char* tty){
+    int fd = initSerialConnexion(tty);
+    if(fd<0)return 0;
+    if(!isNasAvailable(fd)) return 0;
+    if(!sendReboot(fd))return 0;
+
+    //Attente et vérification si nas disponible
+    int cpt =0;
+    char response[RESPONSE_LENGTH];
+    char* command = "\n";
+    do
+    {
+        sleep(10);
+        tcflush(fd,TCIOFLUSH);
+        char buf[RESPONSE_LENGTH] = {0};
+        sendSerialCommand(fd,command, strlen(command), buf);
+        strcpy(response,buf);       
+        cpt++;
+        if(cpt==30)return 0;//attente max 5 mins
+    } while (strncmp(response + strlen(command),"\r\nSynologyNAS login: ",21)!=0);
+    
+    connexionNAS(fd);
+    stopSerialConnexion(fd);
+    return 1;
+}
+
+int main(void){
+
+    int test1 = connexion("/dev/ttyUSB0");
+    int test2 = available("/dev/ttyUSB0");
+    int test3 = reboot("/dev/ttyUSB0");
+    int test4 = available("/dev/ttyUSB0");
+    printf("resultat de la connexion : %d, nas dispo : %d et reboot : %d et dispo : %d\n",test1, test2, test3, test4);
+    
+    /*
     char macAddr[15] = {0};
     char nasType[50] = {0};
     int available = 0;
     int isrebooting = 0;
-
+    
     int fd = initSerialConnexion("/dev/ttyUSB0");
     if(fd<0)return printf("error\n");
     
-    connexion(fd);
+    connexionNAS(fd);
 
-    available = nasAvailable(fd);
+    available = isNasAvailable(fd);
     printf("Dispo pour commande ? %d\n",available);
 
     if(available){
         getNasId(fd,macAddr);
         getNasType(fd,nasType);
-        //isrebooting = reboot(fd);
+        //isrebooting = sendReboot(fd);
     }
 
 
@@ -174,5 +220,7 @@ int main(void){
     printf("Addresse mac/identifiant unique : %s\n",macAddr);
     printf("reboot ? %d\n",isrebooting);
 
-    stopSerialConnexion(fd);
+    stopSerialConnexion(fd);*/
+
+    return 0;
 }

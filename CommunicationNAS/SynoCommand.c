@@ -1,13 +1,4 @@
-#include <unistd.h>
-#include <termios.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include<stdlib.h>
-#include <string.h>
-
-#define RESPONSE_LENGTH 500
+#include "SynoCommand.h"
 
 int initSerialConnexion(char* tty){
     struct termios options;
@@ -232,18 +223,22 @@ int hardReset(char* tty){
     return 1;
 }
 
-//fonction d'initialisation qui (sur tous les ttyUSB) se connecte puis va chercher les @MAC (call api endpoint pour stockage)
-//connexion("tty");
-//getNasId(fd)
+int nasId(char* tty,char macAddr[15]){
+    int fd = initSerialConnexion(tty);
+    if(fd<0)return 0;
+    if(!isNasAvailable(fd)) return 0;
 
-//demandé au lancement de l'api
-//une biblio avec les fonctions de base + des programmes pour les fonctions haut niveau (appel séparé) <= a voir si nécessaire/utile
+    getNasId(fd,macAddr);
 
-int main(void){
+    return 1;
+}
 
-    int test1 = connexion("/dev/ttyUSB0");
-    //int test2 = reboot("/dev/ttyUSB0");
-    int test2 = 0;
-    printf("connexion ? : %d \n reboot ? : %d\n", test1,test2);
-    return 0;
+int nasType(char* tty,char type[50]){
+    int fd = initSerialConnexion(tty);
+    if(fd<0)return 0;
+    if(!isNasAvailable(fd)) return 0;
+
+    getNasType(fd,type);
+
+    return 1;
 }

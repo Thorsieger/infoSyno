@@ -1,4 +1,5 @@
 #include "SynoCommand.h"
+#include <stdio.h>
 
 int initSerialConnexion(char* tty){
     struct termios options;
@@ -87,8 +88,8 @@ void creationCompte(int fd){
 
     char* testaccount = "ls /etc/sudoers.d/\n";
     sendSerialCommand(fd,testaccount, strlen(testaccount), response);
-    if(strncmp(response,"\r\nInfomaniak",12)!=0) return;
-
+    if(strncmp(response,"\r\nInfomaniak",12)==0) return;
+    printf("test\n");
     char* command1 = "echo \'Infomaniak:$6$ySRYvFaW6$k041gHAOqJOf3thxGKWj4zqi0/ohIT3paw.cI5XgZENWw3GZARUtQez9dsaOv1u7oPnpM/0y7dE2WdGLT6G7Z.:18597:0:99999:7:::\' >> /etc/shadow\n";
     char* command2 = "echo \'Infomaniak:x:8:99::/:/bin/sh\' >> /etc/passwd\n";
     char* command3 = "echo \'Infomaniak ALL=(ALL) ALL\' >> /etc/sudoers.d/Infomaniak\n";
@@ -144,7 +145,7 @@ int sendHardreset(int fd){
 
 int available(char* tty){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     
     int status = isNasAvailable(fd);
 
@@ -155,7 +156,7 @@ int available(char* tty){
 /*Fonctions principales*/
 int connexion(char* tty){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(isNasAvailable(fd))return 1;
 
     while(1){
@@ -187,7 +188,7 @@ int connexion(char* tty){
 
 int reboot(char* tty){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(!isNasAvailable(fd)) return 0;
 
     sendReboot(fd);
@@ -199,7 +200,7 @@ int reboot(char* tty){
 
 int softreset(char* tty){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(!isNasAvailable(fd)) return 0;
 
     sendSoftreset(fd);
@@ -211,7 +212,7 @@ int softreset(char* tty){
 
 int hardReset(char* tty){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(!isNasAvailable(fd)) return 0;
 
     if(sendHardreset(fd))return 0;
@@ -225,7 +226,7 @@ int hardReset(char* tty){
 
 int nasId(char* tty,char macAddr[15]){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(!isNasAvailable(fd)) return 0;
 
     getNasId(fd,macAddr);
@@ -235,7 +236,7 @@ int nasId(char* tty,char macAddr[15]){
 
 int nasType(char* tty,char type[50]){
     int fd = initSerialConnexion(tty);
-    if(fd<0)return 0;
+    if(fd<0)return -1;
     if(!isNasAvailable(fd)) return 0;
 
     getNasType(fd,type);

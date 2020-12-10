@@ -9,7 +9,7 @@
 #include <sys/shm.h>
 
 #define IPC_TAILLE_MSG 40
-#define CLE_MSG (key_t)102
+#define CLE_MSG (key_t)100
 
 #define IPC_TAILLE_MRY 1024
 #define CLE_MRY (key_t)300

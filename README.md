@@ -11,4 +11,7 @@ A terme, sur ce repo, vous pourrez trouver le code de contrôle de l'API ainsi q
 Python 3 + les bibliothèques python : flask, flask_restful, functools, gevent et pymongo
 Il faut également lancer mongodb en local : mongod --dbpath ./Documents/.../data/ --port 27018
 
-Il est possible de tester les endpoints grâce à postman (en installant postman agent)
+Il est possible de tester les endpoints grâce à postman (en installant postman agent).
+
+Pour le code C, il faut le compiler avec la commande :
+gcc IPC.c SynoCommand.c main.c -o syno_test -lpthread -Wall -Wextra

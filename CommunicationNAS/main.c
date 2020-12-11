@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 #define NUM_NAS 45
+#define TAILLE_MAC 15
 
 int msgid;
 struct sigaction action;
@@ -17,31 +18,83 @@ void hand(int sig) {
 	}
 }
 
-char AllMacAddress[46][15] = {0};
+char AllMacAddress[NUM_NAS][TAILLE_MAC] = {0};
 
 void *getTTY(void *threadid){
     char address[14] = "/dev/ttyUSB";
-    char buf[3];
-    long id;
-    id = (long)threadid;
+    char mac[TAILLE_MAC] = {0};
+    char buf[3] = {0};
+
+    long id = (long)threadid;
     sprintf(buf,"%ld",id);
     strcat(address,buf);
 
     int co = connexion(address);
 
-    char mac[15] = {0};
     if(co<=0) pthread_exit(NULL);
     nasId(address,mac);
     strcpy(AllMacAddress[id],mac);
     pthread_exit(NULL);
 }
 
-//fonction d'initialisation qui (sur tous les ttyUSB) se connecte puis va chercher les @MAC (call api endpoint pour stockage)
-//connexion("tty");
-//getNasId(fd)
+void repondreAPI(char namedpipe[50], char* message){
+    int fd = open(namedpipe, O_WRONLY);
+    write(fd, message, sizeof(message));
+    close(fd);
+}
 
-//demandé au lancement de l'api
-//une biblio avec les fonctions de base + des programmes pour les fonctions haut niveau (appel séparé) <= a voir si nécessaire/utile
+void *gestionAppel(void *info){
+
+    //récupération infos
+    char command[50] = {0};
+    char macAddr[TAILLE_MAC] = {0};
+    char namedpipe[50] = {0};
+    strcpy(command,strtok((char*)info,";"));
+    strcpy(macAddr,strtok(NULL,";"));
+    strcpy(namedpipe,strtok(NULL,";"));
+    free(info);
+
+    //get the tty from @Mac
+    char address[14] = "/dev/ttyUSB";
+    int cpt = 0;
+    char buf[3];
+
+    while(cpt<45 && strcmp(macAddr,AllMacAddress[cpt]))cpt++;
+    if(cpt==45){repondreAPI(namedpipe,"notfound");pthread_exit(NULL);}
+
+    sprintf(buf,"%d",cpt);
+    strcat(address,buf);
+
+    //execute command
+    if(strcmp(command,"info")==0){
+
+        char type[50] = {0};
+        nasType(address,type);
+        repondreAPI(namedpipe,type);
+
+    }else if(strcmp(command,"reboot")==0){
+
+        int result = reboot(address);
+        if(result)repondreAPI(namedpipe,"rebooting");
+        else repondreAPI(namedpipe,"error rebooting");
+        connexion(address);
+
+    }else if(strcmp(command,"softreset")==0){
+
+        int result = softreset(address);
+        if(result)repondreAPI(namedpipe,"softreset ok");
+        else repondreAPI(namedpipe,"error softreset");
+
+    }else if(strcmp(command,"hardreset")==0){
+
+        int result = hardReset(address);
+        if(result)repondreAPI(namedpipe,"hardreset ok");
+        else repondreAPI(namedpipe,"error rebooting");
+        connexion(address);
+    }
+    
+    pthread_exit(NULL);
+}
 
 int main(void){
     //Pour quitter proprement
@@ -55,52 +108,15 @@ int main(void){
         pthread_create(&threads[i], NULL,getTTY,(void *)i);
     }
     
+    //gestion appel API
     msgid = createIPCm_serveur(CLE_MSG);
     while(1){
-        char messageIPC[IPC_TAILLE_MSG] = {0};
+        char* messageIPC = malloc(IPC_TAILLE_MSG * sizeof(char));
+        pthread_t thread_gestion;
+
         rcvIPCm(msgid, messageIPC, 1);
-        
-        char command[50] = {0};
-        char macAddr[15] = {0};
-        char pip[5] = {0};
-        strcpy(command,strtok(messageIPC,";"));
-        strcpy(macAddr,strtok(NULL,";"));
-        strcpy(pip,strtok(NULL,";"));
-
-        //if(strcmp).... pour les commandes
-        //create thread ou child
-
-        char address[14] = "/dev/ttyUSB";
-        int cpt = 0;
-        char buf[3];
-
-        while(cpt<45 && strcmp(macAddr,AllMacAddress[cpt]))cpt++;
-
-        sprintf(buf,"%d",cpt);
-        strcat(address,buf);
-
-        char type[50] = {0};
-        if(strcmp(command,"reboot")==0){
-            nasType(address,type);
-            printf("%s\n",type);
-
-        }
-
+        pthread_create(&thread_gestion, NULL,gestionAppel,messageIPC);
     }
-
-    int test1 = connexion("/dev/ttyUSB0");
-
-    char macAddr[15] = {0};
-    char type[50] = {0};
-
-    nasId("/dev/ttyUSB0",macAddr);
-    nasType("/dev/ttyUSB0",type);
-
-    printf("Mac : %s\nType : %s\n",macAddr,type);
-
-    int test2 = 0;
-    //test2 = reboot("/dev/ttyUSB0");
-    
-    printf("connexion ? : %d \n reboot ? : %d\n", test1,test2);
+        
     return 0;
 }

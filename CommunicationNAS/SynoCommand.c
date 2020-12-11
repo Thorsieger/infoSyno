@@ -51,6 +51,7 @@ int connexionCompteInfomaniak(int fd){
 
     if(strncmp(response3+10,"Infomaniak@",11)!=0) return 0;
 
+    sleep(1);
     sendSerialCommand(fd,command2, strlen(command2), response1);//sudo su
     sendSerialCommand(fd,pwd, strlen(pwd), response1);//pwd
     sleep(2);//Il faut attendre un peu que le mot de passe soit accepté
@@ -72,6 +73,7 @@ int connexionCompteAdmin(int fd){
     if(!(strncmp(response1,"admin\r\nPassword: ",17)==0 || strncmp(response1,"admin\r\r\nPassword: ",18)==0)) return 0;
     sendSerialCommand(fd,pwd, strlen(pwd), response1);
     if(strncmp(response1,"\r\n -- admin: /var/services/homes/admin",38)!=0) return 0;
+    sleep(1);
 
     //Passage en root
     sendSerialCommand(fd,command2, strlen(command2), response2);//sudo su
@@ -88,8 +90,8 @@ void creationCompte(int fd){
 
     char* testaccount = "ls /etc/sudoers.d/\n";
     sendSerialCommand(fd,testaccount, strlen(testaccount), response);
-    if(strncmp(response,"\r\nInfomaniak",12)==0) return;
-    printf("test\n");
+    if(strncmp(response + strlen(testaccount),"\nInfomaniak",11)==0) return;
+
     char* command1 = "echo \'Infomaniak:$6$ySRYvFaW6$k041gHAOqJOf3thxGKWj4zqi0/ohIT3paw.cI5XgZENWw3GZARUtQez9dsaOv1u7oPnpM/0y7dE2WdGLT6G7Z.:18597:0:99999:7:::\' >> /etc/shadow\n";
     char* command2 = "echo \'Infomaniak:x:8:99::/:/bin/sh\' >> /etc/passwd\n";
     char* command3 = "echo \'Infomaniak ALL=(ALL) ALL\' >> /etc/sudoers.d/Infomaniak\n";
@@ -109,7 +111,7 @@ void getNasType(int fd,char nasType[50]){
     char response[RESPONSE_LENGTH] = {0};
     char* command = "cat /etc/synoinfo.conf | grep \"upnpmodelname\" -m 1\n";
     sendSerialCommand(fd,command, strlen(command), response);
-    char* buf = strtok(response + strlen(command)+1,"\"");
+    strtok(response + strlen(command)+1,"\"");
     strcpy(nasType,strtok(NULL,"\""));
 }
 
@@ -155,8 +157,11 @@ int available(char* tty){
 
 /*Fonctions principales*/
 int connexion(char* tty){
-    int fd = initSerialConnexion(tty);
-    if(fd<0)return -1;
+    int fd;
+    do
+    {
+        fd = initSerialConnexion(tty);
+    } while (fd<0);
     if(isNasAvailable(fd))return 1;
 
     while(1){

@@ -46,7 +46,7 @@ int connexionCompteInfomaniak(int fd){
     char pwd[10] = "glopglop\n";
 
     sendSerialCommand(fd,command1, strlen(command1), response1);
-    if(strncmp(response1+strlen(command1),"\r\nPassword: ",13)!=0) return 0;
+    if(strncmp(response1+strlen(command1),"\r\nPassword: ",13)!=0) return 0;// ou si réponse == admin@ ou Infomaniak@ (err passage root)
     sendSerialCommand(fd,pwd, strlen(pwd), response3);
 
     if(strncmp(response3+10,"Infomaniak@",11)!=0) return 0;
@@ -95,9 +95,11 @@ void creationCompte(int fd){
     char* command1 = "echo \'Infomaniak:$6$ySRYvFaW6$k041gHAOqJOf3thxGKWj4zqi0/ohIT3paw.cI5XgZENWw3GZARUtQez9dsaOv1u7oPnpM/0y7dE2WdGLT6G7Z.:18597:0:99999:7:::\' >> /etc/shadow\n";
     char* command2 = "echo \'Infomaniak:x:8:99::/:/bin/sh\' >> /etc/passwd\n";
     char* command3 = "echo \'Infomaniak ALL=(ALL) ALL\' >> /etc/sudoers.d/Infomaniak\n";
+    char* command4 = "echo -e \'Match User Infomaniak\nDenyUsers Infomaniak\' >> /etc/ssh/sshd_config\n";
     sendSerialCommand(fd,command1, strlen(command1), response);
     sendSerialCommand(fd,command2, strlen(command2), response);
     sendSerialCommand(fd,command3, strlen(command3), response);
+    sendSerialCommand(fd,command4, strlen(command4), response);
 }
 
 void getNasId(int fd, char macAddr[15]){
@@ -162,6 +164,7 @@ int connexion(char* tty){
     {
         fd = initSerialConnexion(tty);
     } while (fd<0);
+    creationCompte(fd);
     if(isNasAvailable(fd))return 1;
 
     while(1){

@@ -164,7 +164,6 @@ int connexion(char* tty){
     {
         fd = initSerialConnexion(tty);
     } while (fd<0);
-    creationCompte(fd);
     if(isNasAvailable(fd))return 1;
 
     while(1){

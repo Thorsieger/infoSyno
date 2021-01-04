@@ -46,17 +46,20 @@ int connexionCompteInfomaniak(int fd){
     char pwd[10] = "glopglop\n";
 
     sendSerialCommand(fd,command1, strlen(command1), response1);
-    if(strncmp(response1+strlen(command1),"\r\nPassword: ",13)!=0) return 0;// ou si réponse == admin@ ou Infomaniak@ (err passage root)
-    sendSerialCommand(fd,pwd, strlen(pwd), response3);
+    if(strncmp(response1+strlen(command1),"\n-sh: Infomaniak: command not found\r\n\33[01;32mInfomaniak@",56)!=0)//si on est déja connecté sous Infomaniak
+    {
+        if(strncmp(response1+strlen(command1),"\r\nPassword: ",13)!=0) return 0;// ou si réponse == admin@ ou Infomaniak@ (err passage root)
+        sendSerialCommand(fd,pwd, strlen(pwd), response3);
+        if(strncmp(response3+10,"Infomaniak@",11)!=0) return -1;
+        sleep(1);
+    }
 
-    if(strncmp(response3+10,"Infomaniak@",11)!=0) return 0;
-
-    sleep(1);
+    //Passage en root
     sendSerialCommand(fd,command2, strlen(command2), response1);//sudo su
     sendSerialCommand(fd,pwd, strlen(pwd), response1);//pwd
     sleep(2);//Il faut attendre un peu que le mot de passe soit accepté
     sendSerialCommand(fd,"\3", 1, response2);//ctrl c
-    if(strncmp(response2+8,"root@",5)!=0) return 0;
+    if(strncmp(response2+8,"root@",5)!=0) return -2;//+8 car couleur renvoyé
     return 1;
 }
 
@@ -70,10 +73,13 @@ int connexionCompteAdmin(int fd){
 
     
     sendSerialCommand(fd,command1, strlen(command1), response1);
-    if(!(strncmp(response1,"admin\r\nPassword: ",17)==0 || strncmp(response1,"admin\r\r\nPassword: ",18)==0)) return 0;
-    sendSerialCommand(fd,pwd, strlen(pwd), response1);
-    if(strncmp(response1,"\r\n -- admin: /var/services/homes/admin",38)!=0) return 0;
-    sleep(1);
+    if(strncmp(response1+strlen(command1),"\n-sh: admin: command not found\r\n\33[01;32madmin@",46)!=0)//si on est déja connecté sous admin -> a tester
+    {
+        if(!(strncmp(response1,"admin\r\nPassword: ",17)==0 || strncmp(response1,"admin\r\r\nPassword: ",18)==0)) return 0;
+        sendSerialCommand(fd,pwd, strlen(pwd), response1);
+        if(strncmp(response1,"\r\n -- admin: /var/services/homes/admin",38)!=0) return -1;
+        sleep(1);
+    }
 
     //Passage en root
     sendSerialCommand(fd,command2, strlen(command2), response2);//sudo su
@@ -81,7 +87,7 @@ int connexionCompteAdmin(int fd){
     sleep(2);//Il faut attendre un peu que le mot de passe soit accepté
     sendSerialCommand(fd,"\3", 1, response2);//ctrl c
 
-    if(strncmp(response2+8,"root@",5)!=0) return 0;
+    if(strncmp(response2+8,"root@",5)!=0) return -2;
     return 1;
 }
 
@@ -167,9 +173,9 @@ int connexion(char* tty){
     if(isNasAvailable(fd))return 1;
 
     while(1){
-        if(connexionCompteInfomaniak(fd)) break;
+        if(connexionCompteInfomaniak(fd)>0) break;
         sleep(6);
-        if(connexionCompteAdmin(fd)){sleep(1);creationCompte(fd); break;}
+        if(connexionCompteAdmin(fd)>0){sleep(1);creationCompte(fd); break;}
         sleep(6);
 
         struct termios options;

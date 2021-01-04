@@ -127,7 +127,9 @@ int isNasAvailable(int fd){
     char response[RESPONSE_LENGTH] = {0};
     char* command = "\n";
     sendSerialCommand(fd,command, strlen(command), response);
-    if(strncmp(response+10,"root@",5)!=0) return 0; //+10 car on reviens la couleur du texte également
+    if(strncmp(response+10,"root@",5)!=0){//+10 car on a la couleur du texte également
+        return connexionCompteInfomaniak(fd); //on tente tout de même de se connecter
+    } 
     return 1;
 }
 
@@ -194,7 +196,7 @@ int connexion(char* tty){
     }
     
     int isAvailable = isNasAvailable(fd);
-    //ecrire etat nas api
+    
     stopSerialConnexion(fd);
     return isAvailable;
 }
@@ -205,9 +207,8 @@ int reboot(char* tty){
     if(!isNasAvailable(fd)) return 0;
 
     sendReboot(fd);
-    //ecrire etat nas api
+    
     stopSerialConnexion(fd);
-    //connexion(tty)
     return 1;
 }
 
@@ -217,8 +218,7 @@ int softreset(char* tty){
     if(!isNasAvailable(fd)) return 0;
 
     sendSoftreset(fd);
-    //ecrire etat nas api
-    //si available, alors le softreset est fini
+
     stopSerialConnexion(fd);
     return 1;
 }
@@ -230,10 +230,9 @@ int hardReset(char* tty){
 
     if(sendHardreset(fd))return 0;
     sendReboot(fd);
-    //ecrire etat nas api
+
     stopSerialConnexion(fd);
 
-    //connexion(tty);
     return 1;
 }
 

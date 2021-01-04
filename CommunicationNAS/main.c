@@ -39,7 +39,7 @@ void *getTTY(void *threadid){
 
 void repondreAPI(char namedpipe[50], char* message){
     int fd = open(namedpipe, O_WRONLY);
-    write(fd, message, sizeof(message));
+    write(fd, message, strlen(message));
     close(fd);
 }
 
@@ -77,6 +77,8 @@ void *gestionAppel(void *info){
         int result = reboot(address);
         if(result)repondreAPI(namedpipe,"rebooting");
         else repondreAPI(namedpipe,"error rebooting");
+        
+        sleep(30);//wait for reboot
         connexion(address);
 
     }else if(strcmp(command,"softreset")==0){
@@ -90,6 +92,8 @@ void *gestionAppel(void *info){
         int result = hardReset(address);
         if(result)repondreAPI(namedpipe,"hardreset ok");
         else repondreAPI(namedpipe,"error rebooting");
+        
+        sleep(30);//wait for reboot
         connexion(address);
     }
     

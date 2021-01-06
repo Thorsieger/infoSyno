@@ -49,7 +49,7 @@ int connexionCompteInfomaniak(int fd){
     if(strncmp(response1+strlen(command1),"\n-sh: Infomaniak: command not found\r\n\33[01;32mInfomaniak@",56)!=0)//si on est déja connecté sous Infomaniak
     {
         if(strncmp(response1+strlen(command1),"\r\nPassword: ",13)!=0) return 0;// ou si réponse == admin@ ou Infomaniak@ (err passage root)
-        sleep(1);
+        //sleep(1);
         sendSerialCommand(fd,pwd, strlen(pwd), response3);
         if(strncmp(response3+10,"Infomaniak@",11)!=0) return -1;
         sleep(1);
@@ -77,7 +77,7 @@ int connexionCompteAdmin(int fd){
     if(strncmp(response1+strlen(command1),"\n-sh: admin: command not found\r\n\33[01;32madmin@",46)!=0)//si on est déja connecté sous admin -> a tester
     {
         if(!(strncmp(response1,"admin\r\nPassword: ",17)==0 || strncmp(response1,"admin\r\r\nPassword: ",18)==0)) return 0;
-        sleep(1);
+        //sleep(1);
         sendSerialCommand(fd,pwd, strlen(pwd), response1);
         if(strncmp(response1,"\r\n -- admin: /var/services/homes/admin",38)!=0) return -1;
         sleep(1);

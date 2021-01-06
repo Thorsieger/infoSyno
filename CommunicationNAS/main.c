@@ -85,14 +85,13 @@ void *gestionAppel(void *info){
         
     }else if(strcmp(command,"reboot")==0){
 
-        if(reboot(address))repondreAPI(namedpipe,"rebooting");
-        else repondreAPI(namedpipe,"error rebooting");
-        
-        //ne pas passer ici si erreur
-        nasState[cpt] = 1;
-        sleep(60);//wait for reboot
-        connexion(address);
-        nasState[cpt] = 0;
+        if(reboot(address)){
+            repondreAPI(namedpipe,"rebooting");
+            nasState[cpt] = 1;
+            sleep(60);//wait for reboot
+            connexion(address);
+            nasState[cpt] = 0;
+        }else{repondreAPI(namedpipe,"error rebooting");}
 
     }else if(strcmp(command,"softreset")==0){
 
@@ -101,13 +100,13 @@ void *gestionAppel(void *info){
 
     }else if(strcmp(command,"hardreset")==0){
 
-        if(hardReset(address))repondreAPI(namedpipe,"hardreset ok");
-        else repondreAPI(namedpipe,"error rebooting");
-        
-        nasState[cpt] = 1;
-        sleep(60);//wait for reboot
-        connexion(address);
-        nasState[cpt] = 0;
+        if(hardReset(address)){
+            repondreAPI(namedpipe,"hardreset ok");
+            nasState[cpt] = 1;
+            sleep(60);//wait for reboot
+            connexion(address);
+            nasState[cpt] = 0;
+        }else{repondreAPI(namedpipe,"error rebooting");}
     }
     
     pthread_exit(NULL);

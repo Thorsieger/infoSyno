@@ -90,7 +90,6 @@ def require_appkey(view_function):
     def decorated_function(*args, **kwargs):
         with open('api.key', 'r') as apikey:
             key=apikey.read().replace('\n', '')
-        #if request.headers.get('key') and request.headers.get('key') == "key":
         if request.headers.get('key') and request.headers.get('key') == key:
             return view_function(*args, **kwargs)
         else:
@@ -137,6 +136,8 @@ class NAS(Resource):
         parser.add_argument('name')
         parser.add_argument('addr')
         args = parser.parse_args()
+        if args['addr'] =='':
+            return 'FORBIDDEN MAC NOT DEFINED', 400
         if testDatabaseConnexion("postNAS",NAS_id):
             return "CAN'T CONNECT TO DATABASE",404
         if db.rack.find_one({"_id":NAS_id}) is not None:

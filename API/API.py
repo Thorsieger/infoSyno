@@ -6,7 +6,7 @@ from datetime import datetime
 from flask import Flask, request, abort
 from flask_restful import Api, Resource, reqparse
 from functools import wraps
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 import sysv_ipc
 import logging
 import logging.handlers
@@ -15,16 +15,25 @@ import json
 import ssl
 import time
 
-rackName = 'c5'
-IPC_Key = 100
+with open('rackName', 'r') as fileName:
+    rackName=fileName.read().replace('\n', '')
+
+IPC_Key = 100+1
 
 app = Flask(__name__)
 api = Api(app)
 parser = reqparse.RequestParser()
 
 # Database connexion
-client = MongoClient("mongodb://127.0.0.1:27018")
+client = MongoClient("mongodb://127.0.0.1:27018", serverSelectionTimeoutMS=5000, connect=True, )
 db = client.mymongodb
+
+def testDatabaseConnexion(command, NAS_id):
+    try:
+        client.admin.command('ismaster')
+    except:
+        rsyslog("error",command,NAS_id,"CAN'T CONNECT TO DATABASE")
+        return 1
 
 # Rsyslog
 
@@ -51,7 +60,8 @@ def rsyslog(type,texte,ID,result):
 
     logger.removeHandler(handler)
 
-    db.logs.insert_one({'date': str(datetime.now()),'command': texte,'NAS': ID, 'result': result})
+    if result != "CAN'T CONNECT TO DATABASE":
+        db.logs.insert_one({'date': str(datetime.now()),'command': texte,'NAS': ID, 'result': result})
 
 #IPC_Message
 def sendCommand(NAS_id,command):
@@ -78,10 +88,10 @@ def sendCommand(NAS_id,command):
 def require_appkey(view_function):
     @wraps(view_function)
     def decorated_function(*args, **kwargs):
-        #with open('api.key', 'r') as apikey:
-        #    key=apikey.read().replace('\n', '')
-        if request.headers.get('key') and request.headers.get('key') == "key":
-        #if request.headers.get('x-api-key') and request.headers.get('x-api-key') == key:
+        with open('api.key', 'r') as apikey:
+            key=apikey.read().replace('\n', '')
+        #if request.headers.get('key') and request.headers.get('key') == "key":
+        if request.headers.get('key') and request.headers.get('key') == key:
             return view_function(*args, **kwargs)
         else:
             abort(401)
@@ -91,6 +101,8 @@ def require_appkey(view_function):
 class state(Resource):
     @require_appkey
     def get(self):
+        if testDatabaseConnexion("ping",0):
+            return "CAN'T CONNECT TO DATABASE",404
         rsyslog("info","ping",0,"online")
         return ({'rack' : rackName, 'state' : 'online'}), 200
 
@@ -98,6 +110,8 @@ class allNAS(Resource):
     @require_appkey
     def get(self):
         naslist = []
+        if testDatabaseConnexion("allNAS",0):
+            return "CAN'T CONNECT TO DATABASE",404
         rsyslog("info","allNAS",0,"ok")
         for x in db.rack.distinct('_id'):
             naslist.append(NAS.get(self,x))
@@ -106,7 +120,9 @@ class allNAS(Resource):
 class NAS(Resource):
     @require_appkey
     def get(self,NAS_id):
-        
+        if testDatabaseConnexion("getNAS",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
+
         nas_data = db.rack.find_one({"_id":NAS_id})
         if nas_data is None :
             rsyslog("warn","getNAS",NAS_id,"notfound")
@@ -121,7 +137,8 @@ class NAS(Resource):
         parser.add_argument('name')
         parser.add_argument('addr')
         args = parser.parse_args()
-
+        if testDatabaseConnexion("postNAS",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         if db.rack.find_one({"_id":NAS_id}) is not None:
             rsyslog("error","postNAS",NAS_id,"alreadyexist")           
             return 'FORBIDDEN - ID EXIST', 403
@@ -140,7 +157,8 @@ class NAS(Resource):
         parser.add_argument('name')
         parser.add_argument('addr')
         args = parser.parse_args()
-
+        if testDatabaseConnexion("patchNAS",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_data = db.rack.find_one({"_id":NAS_id})
         if nas_data is None:
             rsyslog("warn","patchNAS",NAS_id,"notfound")
@@ -160,6 +178,8 @@ class NAS(Resource):
 
     @require_appkey
     def delete(self, NAS_id):
+        if testDatabaseConnexion("deleteNAS",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         if db.rack.find_one({"_id":NAS_id}) is None:
             rsyslog("warn","deleteNAS",NAS_id,"notfound")
             return 'NOT found', 404
@@ -172,6 +192,8 @@ class NAS(Resource):
 class softreset(Resource):
     @require_appkey
     def post(self,NAS_id):
+        if testDatabaseConnexion("softreset",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_data = db.rack.find_one({"_id":NAS_id})
         if nas_data is None:
             rsyslog("warn","softreset",NAS_id,"notfound")
@@ -184,6 +206,8 @@ class softreset(Resource):
 class hardreset(Resource):
     @require_appkey
     def post(self,NAS_id):
+        if testDatabaseConnexion("hardreset",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_data = db.rack.find_one({"_id":NAS_id})
         if nas_data is None:
             rsyslog("warn","hardreset",NAS_id,"notfound")
@@ -196,6 +220,8 @@ class hardreset(Resource):
 class reboot(Resource):
     @require_appkey
     def post(self,NAS_id):
+        if testDatabaseConnexion("reboot",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_data = db.rack.find_one({"_id":NAS_id})
         if nas_data is None:
             rsyslog("warn","reboot",NAS_id,"notfound")
@@ -209,6 +235,8 @@ class reboot(Resource):
 class logs(Resource):
     @require_appkey
     def get(self,NAS_id):
+        if testDatabaseConnexion("getlogs",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_logs = db.logs.find({"NAS":NAS_id}).sort('date',-1)
         logNAS =[]
         for x in nas_logs:
@@ -221,6 +249,8 @@ class logs(Resource):
 
     @require_appkey
     def delete(self,NAS_id):
+        if testDatabaseConnexion("deletelogs",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         if db.logs.delete_many({"NAS":NAS_id}).deleted_count == 0:
             return 'no data', 204
         return '', 204
@@ -228,16 +258,20 @@ class logs(Resource):
 class alllogs(Resource):
     @require_appkey
     def get(self):
+        if testDatabaseConnexion("allLogs",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         nas_logs = db.logs.find().sort([('NAS',1),('date',-1)])
         logNAS =[]
         for x in nas_logs:
             x.pop('_id')
             logNAS.append(x)
         if not logNAS:
-            #rsyslog("warn","log",NAS_id,"notfound")
+            #rsyslog("warn","AllLog",NAS_id,"notfound")
             return 'no data', 204
         return logNAS, 200
     def delete(self):
+        if testDatabaseConnexion("deleteAllLog",NAS_id):
+            return "CAN'T CONNECT TO DATABASE",404
         if db.logs.delete_many({}).deleted_count == 0:
             return 'no data', 204
         return '', 204

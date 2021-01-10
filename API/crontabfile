@@ -1,0 +1,2 @@
+#Lancement de la tache tous les mercredis à 10h
+0 10 * * wed python3 /path/to/the/file/clearLogs.py

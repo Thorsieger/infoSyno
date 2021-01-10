@@ -43,7 +43,7 @@ int connexionCompteInfomaniak(int fd){
     char response3[RESPONSE_LENGTH] = {0};
     char* command1 = "Infomaniak\n";
     char* command2 = "sudo su -\n";
-    char pwd[10] = "glopglop\n";
+    char* pwd = "glopglop\n";
 
     sendSerialCommand(fd,command1, strlen(command1), response1);
     if(strncmp(response1+strlen(command1),"\n-sh: Infomaniak: command not found\r\n\33[01;32mInfomaniak@",56)!=0)//si on est déja connecté sous Infomaniak
@@ -173,6 +173,7 @@ int connexion(char* tty){
     do
     {
         fd = initSerialConnexion(tty);
+        if(fd<0)sleep(1);//attendre pour ne pas tourner en permanence
     } while (fd<0);
     if(isNasAvailable(fd))return 1;
 
@@ -196,6 +197,8 @@ int connexion(char* tty){
         options.c_cc[VMIN]  = 0;
         options.c_cc[VTIME] = 5;
         tcsetattr(fd, TCSANOW, &options);
+
+        if(fcntl(fd, F_GETFD)==-1)break;//check if fd still exist
     }
     
     int isAvailable = isNasAvailable(fd);

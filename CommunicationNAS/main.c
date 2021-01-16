@@ -11,11 +11,9 @@
 int msgid;
 struct sigaction action;
 
-void hand(int sig) {
-	if (sig==SIGINT) {
-		msgctl(msgid, IPC_RMID, 0);
-		exit(0);
-	}
+void hand() {
+	msgctl(msgid, IPC_RMID, 0);
+	exit(0);
 }
 
 char AllMacAddress[NUM_NAS][TAILLE_MAC] = {0};
@@ -30,9 +28,12 @@ void *getTTY(void *threadid){
     sprintf(buf,"%ld",id);
     strcat(address,buf);
 
-    int co = connexion(address);
-
-    if(co<=0) pthread_exit(NULL);
+    int co=0;
+    do
+    {
+        co = connexion(address);
+    } while (!co);
+    
     nasId(address,mac);
     strcpy(AllMacAddress[id],mac);
     printf("Connected to NAS id: %ld\n",id);
@@ -65,11 +66,23 @@ void *gestionAppel(void *info){
     sprintf(buf,"%d",cpt);
     strcat(address,buf);
 
-    if(nasState[cpt]){
+    if(nasState[cpt]==1){
         repondreAPI(namedpipe,"NAS is rebooting");
         pthread_exit(NULL);
     }
-
+    else if (nasState[cpt]==2)
+    {
+        repondreAPI(namedpipe,"Error connexion to NAS : trying for more than 30 mins : retrying");
+        nasState[cpt] = 3;
+        int result = connexion(address);
+        if(result==-1)nasState[cpt] = 2;
+        else nasState[cpt] = 0;
+        pthread_exit(NULL);
+    }else if(nasState[cpt]==3){
+        repondreAPI(namedpipe,"Trying to reconnect");
+        pthread_exit(NULL);
+    }
+    
     //execute command
     /*if(strcmp(command,"info")==0){
 
@@ -89,8 +102,9 @@ void *gestionAppel(void *info){
             repondreAPI(namedpipe,"rebooting");
             nasState[cpt] = 1;
             sleep(60);//wait for reboot
-            connexion(address);
-            nasState[cpt] = 0;
+            int result = connexion(address);
+            if(result==-1)nasState[cpt] = 2;
+            else nasState[cpt] = 0;
         }else{repondreAPI(namedpipe,"error rebooting");}
 
     }else if(strcmp(command,"softreset")==0){
@@ -104,9 +118,10 @@ void *gestionAppel(void *info){
             repondreAPI(namedpipe,"hardreset ok");
             nasState[cpt] = 1;
             sleep(60);//wait for reboot
-            connexion(address);
-            nasState[cpt] = 0;
-        }else{repondreAPI(namedpipe,"error rebooting");}
+            int result = connexion(address);
+            if(result==-1)nasState[cpt] = 2;
+            else nasState[cpt] = 0;
+        }else{repondreAPI(namedpipe,"error hardreset");}
     }
     
     pthread_exit(NULL);
@@ -131,7 +146,7 @@ int main(void){
         pthread_t thread_gestion;
 
         rcvIPCm(msgid, messageIPC, 1);
-        printf("message recieved : %s\n",messageIPC);
+        printf("message received : %s\n",messageIPC);
         pthread_create(&thread_gestion, NULL,gestionAppel,messageIPC);
     }
         

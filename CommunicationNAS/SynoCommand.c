@@ -179,6 +179,7 @@ int connexion(char* tty){
     } while (fd<0);
     if(isNasAvailable(fd))return 1;
 
+    int cpt_test=0;
     while(1){
         if(connexionCompteInfomaniak(fd)>0) break;
         sleep(6);
@@ -201,6 +202,8 @@ int connexion(char* tty){
         tcsetattr(fd, TCSANOW, &options);
 
         if(fcntl(fd, F_GETFD)==-1)break;//check if fd still exist
+        cpt_test++;
+        if(cpt_test==150) return -1;
     }
     
     int isAvailable = isNasAvailable(fd);
